@@ -3,7 +3,7 @@
 * Number (NUM, 16)
 
 |Instr |Hex| Description                     |
-|:----:|:-:|:-------------------------------:|
+|:----:|:-:|:--------------------------------|
 | 0000 | 0 | NO-OP                           |
 | 0001 | 1 | Write NUM to RA                 |
 | 0010 | 2 | Write NUM to RB                 |
@@ -22,7 +22,7 @@
 | 1111 | F | JMP to RAM address NUM          |
 
 |ALU OP|Hex| Name    | Output |
-|:----:|:-:|:-------:|:------:|
+|:----:|:-:|:--------|:------:|
 | 0000 | 0 | NO-OP   | N/A    |
 | 0001 | 1 | A GT B  | FLAG   |
 | 0010 | 2 | A EQ B  | FLAG   |
