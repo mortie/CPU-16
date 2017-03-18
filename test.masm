@@ -1,5 +1,0 @@
-write $0 1
-
-:start
-add %1 $2 1
-goto start

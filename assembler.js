@@ -61,7 +61,7 @@ function assembleLine(line, output) {
 		return;
 
 	var opr = args[0];
-	if (opr[0] === ":")
+	if (opr[0] === ":" || opr[0] === "#")
 		return;
 
 	switch (opr) {

@@ -1,0 +1,6 @@
+write $1 1
+
+:start
+add %1 $1 1 # Add the content of RAM address 1 to the number 1,
+            # save output to RAM address 1
+goto start
