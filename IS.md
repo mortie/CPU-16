@@ -2,24 +2,24 @@
 * ALU Operation (OPR, 4)
 * Number (NUM, 16)
 
-|Instr |Hex| Description                     |
-|:----:|:-:|:--------------------------------|
-| 0000 | 0 | NO-OP                           |
-| 0001 | 1 | Load NUM to RA                  |
-| 0010 | 2 | Load NUM to RB                  |
-| 0011 | 3 | Load RAM address NUM to RA      |
-| 0100 | 4 | Load RAM address NUM to RB      |
-| 0101 | 5 | Write OUT to RAM address NUM    |
-| 0110 | 6 | JMP to NUM if FLAG              |
-| 0111 | 7 | JMP to RAM address NUM if FLAG  |
-| 1000 | 8 | JMP to NUM                      |
-| 1001 | 9 | JMP to RAM address NUM          |
-| 1010 | A | NO-OP                           |
-| 1011 | B | NO-OP                           |
-| 1100 | C | NO-OP                           |
-| 1101 | D | NO-OP                           |
-| 1110 | E | NO-OP                           |
-| 1111 | F | NO-OP                           |
+|Instr |Hex| Description                       |
+|:----:|:-:|:----------------------------------|
+| 0000 | 0 | NO-OP                             |
+| 0001 | 1 | Load NUM to RA                    |
+| 0010 | 2 | Load NUM to RB                    |
+| 0011 | 3 | Load RAM address NUM to RA        |
+| 0100 | 4 | Load RAM address NUM to RB        |
+| 0101 | 5 | Write OUT to RAM address NUM      |
+| 0110 | 6 | JMP to NUM if FLAG                |
+| 0111 | 7 | JMP to RAM address NUM if FLAG    |
+| 1000 | 8 | JMP to NUM                        |
+| 1001 | 9 | JMP to RAM address NUM            |
+| 1010 | A | Output NUM externally             |
+| 1011 | B | Output RAM address NUM externally |
+| 1100 | C | Write external input to RA        |
+| 1101 | D | NO-OP                             |
+| 1110 | E | NO-OP                             |
+| 1111 | F | NO-OP                             |
 
 |ALU OP|Hex| Name    | Output |
 |:----:|:-:|:--------|:------:|

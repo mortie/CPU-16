@@ -3,11 +3,14 @@
 This is a 16 bit logisim CPU, complete with a simple assembler.
 The instruction set is detailed in [IS.md](https://github.com/mortie/CPU-16/blob/master/IS.md).
 
-![Screenshot](https://raw.githubusercontent.com/mortie/CPU-16/master/assets/screenshot.png)
+![Screenshot](https://raw.githubusercontent.com/mortie/CPU-16/master/images/cpu.png)
 
 Here's a video fo the CPU running fibonacci (pay attention to RAM address
 0003):
 [https://vid.me/K5x0](https://vid.me/K5x0)
+
+Note: after making that video, I put the CPU in a subcircuit. The operation of
+the CPU can still be viewed by right clicking the CPU and pressing `View CPU`.
 
 ## Assembler
 
@@ -68,3 +71,5 @@ directory](https://github.com/mortie/CPU-16/tree/master/examples).
 * `xor <a> <b> <dest>`: XOR `a` and `b`, write to `dest`.
 * `and <a> <b> <dest>`: AND `a` and `b`, write to `dest`.
 * `or <a> <b> <dest>`: OR `a` and `b`, write to `dest`.
+* `input`: Write external input to RA.
+* `output <num>`: Write `num` to external output. Note: `num` can't be `reg`.

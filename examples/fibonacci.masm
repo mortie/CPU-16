@@ -5,4 +5,5 @@ write $1 2
 add %1 %2 3
 write %2 1
 write %3 2
+output %3
 goto loop

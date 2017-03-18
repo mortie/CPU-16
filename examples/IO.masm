@@ -1,0 +1,5 @@
+:loop
+input
+write reg 1
+output %1
+goto loop

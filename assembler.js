@@ -28,31 +28,40 @@ function instruction(instr, op, _num) {
  * reg: Value in the register
  */
 function loadVal(reg, val, output) {
-	if (reg !== "A" && reg !== "B")
+	if (reg !== "A" && reg !== "B" && reg !== "OUT")
 		throw new Error("Invalid register: "+reg);
 
-	if (num === "reg")
+	if (val === "reg" && reg === "OUT")
+		throw new Error("Value can't be 'reg' when the target is output.");
+
+	if (val === "reg")
 		return;
 
 	var instr;
-	var offset = reg === "A" ? 0 : 1;
 	var num = parseInt(val.substr(1));
 	if (isNaN(num))
 		throw new Error("Invalid value: "+val);
 
-	// $10
-	if (val[0] === "$") {
-		instr = 1;
-
-	// %10
-	} else if (val[0] === "%") {
-		instr = 3;
-
-	} else {
+	if (val[0] !== "$" && val[0] !== "%")
 		throw new Error("Invalid value: "+val);
+
+	if (val[0] === "$") {
+		if (reg === "A")
+			instr = 1;
+		else if (reg === "B")
+			instr = 2;
+		else
+			instr = 10;
+	} else {
+		if (reg === "A")
+			instr = 3;
+		else if (reg === "B")
+			instr = 4;
+		else
+			instr = 11;
 	}
 
-	output.push(instruction(instr + offset, 0, num));
+	output.push(instruction(instr, 0, num));
 }
 
 function assembleLine(line, output) {
@@ -173,6 +182,14 @@ function assembleLine(line, output) {
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
 		output.push(instruction(5, 15, args[3]));
+		break;
+
+	case "input":
+		output.push(instruction(12, 0, 0));
+		break;
+
+	case "output":
+		loadVal("OUT", args[1], output);
 		break;
 	}
 }
