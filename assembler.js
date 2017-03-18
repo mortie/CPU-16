@@ -139,7 +139,7 @@ function assembleLine(line, output) {
 		output.push(instruction(5, 9, args[3]));
 		break;
 
-		case "mod":
+	case "mod":
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
 		output.push(instruction(5, 10, args[3]));
