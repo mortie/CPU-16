@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+var fs = require("fs");
+
 var labels = {};
 
 function pad(n, val) {
@@ -230,10 +232,33 @@ function assemble(lines) {
 	return output;
 }
 
+function usage() {
+	console.error("Usage: "+process.argv[1]+" <infile|-> [outfile|-]");
+}
+
+if (process.argv.length <= 2) {
+	usage();
+	process.exit(1);
+}
+
+var rs;
+if (process.argv[2] === "-")
+	rs = process.stdin;
+else
+	rs = fs.createReadStream(process.argv[2]);
+
+var ws;
+if (!process.argv[3])
+	ws = fs.createWriteStream("img.raw");
+else if (process.argv[3] === "-")
+	ws = process.stdout;
+else
+	ws = fs.createWriteStream(process.argv[3]);
+
 var str = "";
-process.stdin.on("data", d => str += d.toString());
-process.stdin.on("end", () => {
+rs.on("data", d => str += d.toString());
+rs.on("end", () => {
 	var output = assemble(str.split("\n"));
-	console.log("v2.0 raw");
-	output.forEach(l => console.log(l));
+	ws.write("v2.0 raw\n");
+	output.forEach(l => ws.write(l+"\n"));
 });

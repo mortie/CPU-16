@@ -15,10 +15,11 @@ the CPU can still be viewed by right clicking the CPU and pressing `View CPU`.
 ## Assembler
 
 The assembler is written in javascript, and requires node.js to be installed.
-Its interface is really simple, reading input from stdin and writing output to
-stdout:
 
-	./assembler.js <examples/fibonacci.masm >fibonacci.raw
+	./assembler.js <infile> [outfile]
+
+If `infile` is -, read from stdin. If `outfile` is -, write to stdout.
+If `outfile` is omitted, write to `img.raw`.
 
 After assembling, right click the block labeled `Program ROM`, click `load
 image...`, and select the `.raw` file you just made.
