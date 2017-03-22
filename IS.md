@@ -15,11 +15,11 @@
 | 1000 | 8 | JMP to NUM                        |
 | 1001 | 9 | JMP to RAM address NUM            |
 | 1010 | A | Output NUM externally             |
-| 1011 | B | Output RAM address NUM externally |
+| 1011 | B | Output RAM address RREG externally|
 | 1100 | C | Write external input to RA        |
-| 1101 | D | NO-OP                             |
-| 1110 | E | NO-OP                             |
-| 1111 | F | NO-OP                             |
+| 1101 | D | Write OUT to RREG                 |
+| 1110 | E | Write RAM addess RREG to RA       |
+| 1111 | F | Write RAM address RREG to RB      |
 
 |ALU OP|Hex| Name    | Output |
 |:----:|:-:|:--------|:------:|

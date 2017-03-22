@@ -52,16 +52,38 @@ directory](https://github.com/mortie/CPU-16/tree/master/examples).
 
 ### Instructions
 
-* `:<name>`: Create a label.
-* `load-a <num>`: Load the A register with `num`.
-* `load-b <num>`: Load the B register with `num`.
-* `write <num> <dest>`: Write `num` to address `dest`.
+Registers:
+
+* `RA`: Register for ALU A input.
+* `RB`: Register for ALU B input.
+* `RREG`: Register which can be used as a RAM address.
+
+Format:
+
+* `<label>`: The name of a label. Can be anything other than whitespace.
+* `<val>`, `<a>`, `<b>`: Value. Possible values:
+	* `$n`: The number n.
+	* `%n`: The number in register n.
+	* `*n`: The number in the register pointed to by register n.
+	* `*`: The number pointed to by the RAM address register (`RREG`).
+	* `reg`: The number already in the register.
+* `<dest>`: Destination RAM address. Possible values:
+	* `n`: RAM address n.
+	* `*`: RAM address in RREG.
+
+Operations:
+
+* `:<label>`: Create a label.
+* `load-a <val>`: Load the A register with `val`.
+* `load-b <val>`: Load the B register with `val`.
+* `write <val> <dest>`: Write `val` to address `dest`.
+* `write-rreg <val>`: Write `val` to register RREG.
 * `goto-gt <a> <b> <label>`: Go to `label` if `a > b`.
 * `goto-lt <a> <b> <label>`: Go to `label` if `a < b`.
 * `goto-eq <a> <b> <label>`: Go to `label` if `a == b`.
 * `goto-neq <a> <b> <label>`: Go to `label` if `a != b`.
 * `goto <label>`: Unconditionally jump to `label`.
-* `not <num> <dest>`: Invert `num`, write to `dest`.
+* `not <val> <dest>`: Invert `val`, write to `dest`.
 * `add <a> <b> <dest>`: Add `a` and `b`, write to `dest`.
 * `sub <a> <b> <dest>`: Sub `a` and `b`, write to `dest`.
 * `mul <a> <b> <dest>`: Multiply `a` and `b`, write to `dest`.
@@ -73,4 +95,15 @@ directory](https://github.com/mortie/CPU-16/tree/master/examples).
 * `and <a> <b> <dest>`: AND `a` and `b`, write to `dest`.
 * `or <a> <b> <dest>`: OR `a` and `b`, write to `dest`.
 * `input`: Write external input to RA.
-* `output <num>`: Write `num` to external output. Note: `num` can't be `reg`.
+* `output <val>`: Write `val` to external output.
+
+### Preprocessor
+
+* `#define name val`: Define a name. Any occurrence of that name later will be
+  replaced.
+* `#define name {`: Define a name, multiple lines. All lines until the next `}`
+  will be included.
+* `#include "path"`: Include a file, if it hasn't been included yet. Path is
+  relative to the directory of the current file.
+* `#include <path>`: Include a file like above. Path is relative to the
+  directory the assembler was ran from.

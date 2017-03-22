@@ -1,11 +1,37 @@
 #!/usr/bin/env node
 
 var fs = require("fs");
+var pathlib = require("path");
 
 var labels = {};
 
+var oprs = {
+	A: 0,
+	GT: 1,
+	EQ: 2,
+	LT: 3,
+	NEQ: 4,
+	NOT_A: 5,
+	ADD: 6,
+	SUB: 7,
+	MUL: 8,
+	DIV: 9,
+	MOD: 10,
+	LSHIFT: 11,
+	RSHIFT: 12,
+	XOR: 13,
+	AND: 14,
+	OR: 15
+};
+
+var defines = {};
+
 function pad(n, val) {
 	return new Array(n - val.length + 1).join("0") + val;
+}
+
+function readlines(file) {
+	return fs.readFileSync(file, "utf-8").split("\n");
 }
 
 function instruction(instr, op, _num) {
@@ -26,27 +52,27 @@ function instruction(instr, op, _num) {
 
 /*
  * $10: 10
- * %10: value pointed to by RAM address 10
+ * %10: value in RAM address 10
+ * *10: value pointed to by value in RAM address 10
+ * *: value pointed to by the value in register RREG
  * reg: Value in the register
  */
 function loadVal(reg, val, output) {
 	if (reg !== "A" && reg !== "B" && reg !== "OUT")
 		throw new Error("Invalid register: "+reg);
 
-	if (val === "reg" && reg === "OUT")
-		throw new Error("Value can't be 'reg' when the target is output.");
-
 	if (val === "reg")
 		return;
 
 	var instr;
 	var num = parseInt(val.substr(1));
-	if (isNaN(num))
+	if (isNaN(num) && val !== "*A")
 		throw new Error("Invalid value: "+val);
 
-	if (val[0] !== "$" && val[0] !== "%")
+	if (val[0] !== "$" && val[0] !== "%" && val[0] !== "*")
 		throw new Error("Invalid value: "+val);
 
+	// Load NUM to register
 	if (val[0] === "$") {
 		if (reg === "A")
 			instr = 1;
@@ -54,16 +80,47 @@ function loadVal(reg, val, output) {
 			instr = 2;
 		else
 			instr = 10;
-	} else {
+
+	// Load RAM addr NUM to register
+	} else if (val[0] === "%") {
+
+		// We have to do some trickery to output from RAM addr n
+		if (reg === "OUT") {
+			loadVal("A", "$"+num, output);     // load RA
+			output.push(13, 0, 0);             // load RREG from RA
+			output.push(11, 0, 0);             // output RAM addr RREG
+			return;
+		}
+
 		if (reg === "A")
 			instr = 3;
 		else if (reg === "B")
 			instr = 4;
+	} else if (val[0] === "*") {
+		if (val !== "*")
+			loadVal("A", "$"+num, output);
+
+		if (reg === "A")
+			instr = 14;
+		else if (reg === "B")
+			instr = 15;
 		else
 			instr = 11;
 	}
 
 	output.push(instruction(instr, 0, num));
+}
+
+/*
+ * 1: RAM register 1
+ * *: RAM register RREG
+ */
+function writeRam(val, opr, output) {
+	if (val === "*") {
+		output.push(instruction(11, opr, 0));
+	} else {
+		output.push(instruction(5, opr, val));
+	}
 }
 
 function assembleLine(line, output) {
@@ -72,8 +129,6 @@ function assembleLine(line, output) {
 		return;
 
 	var opr = args[0];
-	if (opr[0] === ":" || opr[0] === "#")
-		return;
 
 	switch (opr) {
 	case "load-a":
@@ -86,34 +141,39 @@ function assembleLine(line, output) {
 
 	case "write":
 		loadVal("A", args[1], output);
-		output.push(instruction(5, 0, args[2]));
+		writeRam(args[3], 0, output);
+		break;
+
+	case "write-rreg":
+		loadVal("A", args[1], output);
+		output.push(instruction(13, 0, 0));
 		break;
 
 	case "goto-gt":
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
-		output.push(instruction(5, 1, 0));
+		output.push(instruction(5, oprs.GT, 0));
 		output.push(instruction(6, 0, labels[args[3]]));
 		break;
 
 	case "goto-lt":
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
-		output.push(instruction(5, 3, 0));
+		output.push(instruction(5, oprs.LT, 0));
 		output.push(instruction(6, 0, labels[args[3]]))
 		break;
 
 	case "goto-eq":
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
-		output.push(instruction(5, 2, 0));
+		output.push(instruction(5, oprs.EQ, 0));
 		output.push(instruction(6, 0, labels[args[3]]))
 		break;
 
 	case "goto-neq":
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
-		output.push(instruction(5, 4, 0));
+		output.push(instruction(5, oprs.NEQ, 0));
 		output.push(instruction(6, 0, labels[args[3]]))
 		break;
 
@@ -123,67 +183,67 @@ function assembleLine(line, output) {
 
 	case "not":
 		loadVal("A", args[1], output);
-		output.push(instruction(5, 5, args[2]));
+		output.push(instruction(5, oprs.NOT_A, args[2]));
 		break;
 
 	case "add":
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
-		output.push(instruction(5, 6, args[3]));
+		writeRam(args[3], oprs.ADD, output);
 		break;
 
 	case "sub":
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
-		output.push(instruction(5, 7, args[3]));
+		writeRam(args[3], oprs.SUB, output);
 		break;
 
 	case "mul":
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
-		output.push(instruction(5, 8, args[3]));
+		writeRam(args[3], oprs.MUL, output);
 		break;
 
 	case "div":
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
-		output.push(instruction(5, 9, args[3]));
+		writeRam(args[3], oprs.DIV, output);
 		break;
 
 	case "mod":
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
-		output.push(instruction(5, 10, args[3]));
+		writeRam(args[3], oprs.MOD, output);
 		break;
 
 	case "lshift":
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
-		output.push(instruction(5, 11, args[3]));
+		writeRam(args[3], oprs.LSHIFT, output);
 		break;
 
 	case "rshift":
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
-		output.push(instruction(5, 12, args[3]));
+		writeRam(args[3], oprs.RSHIFT, output);
 		break;
 
 	case "xor":
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
-		output.push(instruction(5, 13, args[3]));
+		writeRam(args[3], oprs.XOR, output);
 		break;
 
 	case "and":
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
-		output.push(instruction(5, 14, args[3]));
+		writeRam(args[3], oprs.AND, output);
 		break;
 
 	case "or":
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
-		output.push(instruction(5, 15, args[3]));
+		writeRam(args[3], oprs.OR, output);
 		break;
 
 	case "input":
@@ -196,13 +256,99 @@ function assembleLine(line, output) {
 	}
 }
 
-function preprocess(lines) {
+var defines = {};
+
+/*
+ * Interpret pragmas, lines starting with #.
+ * Returns:
+ *     true if done, false if it needs the next line too
+ */
+var pragmaState = "normal";
+var pragmaVal = null;
+function pragma(str, cwd, output) {
+	if (pragmaState === "in-define") {
+		if (str.trim() === "}") {
+			pragmaState = "normal";
+			defines[pragmaVal.name] = pragmaVal.str;
+			pragmaVal = null;
+			return false;
+		} else {
+			pragmaVal.str += str + "\n";
+			return true;
+		}
+	}
+
+	if (pragmaState !== "normal")
+		throw "Unknown pragmaState: "+pragmaState;
+
+	var opr = str.split(/\s+/)[0];
+	str = str.replace(opr, "").trim();
+
+	switch (opr) {
+	case "#define":
+		var name = str.split(/\s+/)[0];
+		str = str.replace(name, "").trim();
+		if (str === "{") {
+			pragmaVal = { str: "", name: name };
+			pragmaState = "in-define";
+			return true;
+		} else {
+			defines[name] = str;
+		}
+		break;
+
+	case "#include":
+		var relative;
+		if (str[0] === "\"" && str[str.length - 1] === "\"")
+			relative = true;
+		else if (str[0] === "<" && str[str.length - 1] === ">")
+			relative = false;
+		else
+			throw "Invalid include path";
+
+		var path = str.substring(1, str.length - 1);
+		if (relative)
+			path = pathlib.join(cwd, path);
+		else
+			path = pathlib.join(process.cwd(), path);
+
+		if (defines["INCLUDED_"+path] !== "1") {
+			preprocess(readlines(path), pathlib.dirname(path)).forEach(l => {
+				output.push(l);
+			});
+
+			defines["INCLUDED_"+path] = "1";
+		}
+	}
+
+	return false;
+}
+
+function preprocess(lines, cwd) {
 	var curr = 0;
+	var outLines = [];
+	var inPragma = false;
+
 	lines.forEach((line, linenum) => {
-		if (line[0] === ":") {
+		line = line.trim();
+		if (line === "")
+			return;
+
+		if (inPragma) {
+			inPragma = pragma(line);
+
+		} else if (line[0] === ":") {
 			var name = line.substr(1).split(/\s+/)[0];
 			labels[name] = curr;
+
+		} else if (line[0] === "#") {
+			inPragma = pragma(line, cwd, outLines);
+
 		} else {
+			for (var i in defines) {
+				line = line.split(i).join(defines[i]);
+			}
+			outLines.push(line);
 			var output = [];
 			try {
 				assembleLine(line, output);
@@ -212,10 +358,18 @@ function preprocess(lines) {
 			curr += output.length;
 		}
 	});
+
+	return outLines;
 }
 
-function assemble(lines) {
-	preprocess(lines);
+function assemble(lines, cwd, print) {
+	cwd = cwd || process.cwd();
+	lines = preprocess(lines, cwd);
+
+	if (print) {
+		console.error("Preprocessor output:");
+		lines.forEach(l => console.error(l));
+	}
 
 	var output = [];
 	for (var i in lines) {
@@ -233,7 +387,7 @@ function assemble(lines) {
 }
 
 function usage() {
-	console.error("Usage: "+process.argv[1]+" <infile|-> [outfile|-]");
+	console.error("Usage: "+process.argv[1]+" <infile|-> [outfile|-] [print]");
 }
 
 if (process.argv.length <= 2) {
@@ -255,10 +409,14 @@ else if (process.argv[3] === "-")
 else
 	ws = fs.createWriteStream(process.argv[3]);
 
-var str = "";
-rs.on("data", d => str += d.toString());
-rs.on("end", () => {
-	var output = assemble(str.split("\n"));
-	ws.write("v2.0 raw\n");
-	output.forEach(l => ws.write(l+"\n"));
-});
+var printPreprocessor = process.argv[4] === "print";
+
+(function() {
+	var str = "";
+	rs.on("data", d => str += d);
+	rs.on("end", () => {
+		var output = assemble(str.split("\n"), null, printPreprocessor);
+		ws.write("v2.0 raw\n");
+		output.forEach(l => ws.write(l+"\n"));
+	});
+})();
