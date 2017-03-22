@@ -86,9 +86,9 @@ function loadVal(reg, val, output) {
 
 		// We have to do some trickery to output from RAM addr n
 		if (reg === "OUT") {
-			loadVal("A", "$"+num, output);     // load RA
-			output.push(13, 0, 0);             // load RREG from RA
-			output.push(11, 0, 0);             // output RAM addr RREG
+			loadVal("A", "$"+num, output);      // load RA
+			output.push(instruction(13, 0, 0)); // load RREG from RA
+			output.push(instruction(11, 0, 0)); // output RAM addr RREG
 			return;
 		}
 
@@ -141,7 +141,7 @@ function assembleLine(line, output) {
 
 	case "write":
 		loadVal("A", args[1], output);
-		writeRam(args[3], 0, output);
+		writeRam(args[2], 0, output);
 		break;
 
 	case "write-rreg":
