@@ -96,6 +96,7 @@ Operations:
 * `or <a> <b> <dest>`: OR `a` and `b`, write to `dest`.
 * `input`: Write external input to RA.
 * `output <val>`: Write `val` to external output.
+* `halt`: Halt.
 
 ### Preprocessor
 

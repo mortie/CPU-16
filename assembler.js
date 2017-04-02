@@ -153,7 +153,7 @@ function writeRam(val, opr, output) {
 	}
 }
 
-function assembleLine(line, output) {
+function assembleLine(line, output, ignoreLabels) {
 	var args = line.split(/\s+/);
 	if (args.length === 0)
 		return;
@@ -184,7 +184,14 @@ function assembleLine(line, output) {
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
 		output.push(instruction(8, oprs.GT, 0));
-		loadVal("A", "$"+labels[args[1]], output);
+
+		regs.A = null;
+		if (ignoreLabels)
+			loadVal("A", "$0", output);
+		else
+			loadVal("A", "$"+labels[args[3]], output);
+		regs.A = null;
+
 		output.push(instruction(9, 0, 0));
 		break;
 
@@ -192,7 +199,14 @@ function assembleLine(line, output) {
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
 		output.push(instruction(8, oprs.LT, 0));
-		loadVal("A", "$"+labels[args[1]], output);
+
+		regs.A = null;
+		if (ignoreLabels)
+			loadVal("A", "$0", output);
+		else
+			loadVal("A", "$"+labels[args[3]], output);
+		regs.A = null;
+
 		output.push(instruction(9, 0, 0));
 		break;
 
@@ -200,7 +214,14 @@ function assembleLine(line, output) {
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
 		output.push(instruction(8, oprs.EQ, 0));
-		loadVal("A", "$"+labels[args[1]], output);
+
+		regs.A = null;
+		if (ignoreLabels)
+			loadVal("A", "$0", output);
+		else
+			loadVal("A", "$"+labels[args[3]], output);
+		regs.A = null;
+
 		output.push(instruction(9, 0, 0));
 		break;
 
@@ -208,12 +229,25 @@ function assembleLine(line, output) {
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
 		output.push(instruction(8, oprs.NEQ, 0));
-		loadVal("A", "$"+labels[args[1]], output);
+
+		regs.A = null;
+		if (ignoreLabels)
+			loadVal("A", "$0", output);
+		else
+			loadVal("A", "$"+labels[args[3]], output);
+		regs.A = null;
+
 		output.push(instruction(9, 0, 0));
 		break;
 
 	case "goto":
-		loadVal("A", "$"+labels[args[1]], output);
+		regs.A = null;
+		if (ignoreLabels)
+			loadVal("A", "$0", output);
+		else
+			loadVal("A", "$"+labels[args[1]], output);
+		regs.A = null;
+
 		output.push(instruction(10, 0, 0));
 		break;
 
@@ -292,6 +326,10 @@ function assembleLine(line, output) {
 
 	case "output":
 		loadVal("OUT", args[1], output);
+		break;
+
+	case "halt":
+		output.push(instruction(14, 0, 0));
 		break;
 
 	case "_reset-regs":
@@ -401,7 +439,7 @@ function preprocess(lines, cwd) {
 			outLines.push(line);
 			var output = [];
 			try {
-				assembleLine(line, output);
+				assembleLine(line, output, true);
 			} catch (err) {
 				console.error("Line "+linenum+": "+err.message);
 			}
@@ -428,6 +466,7 @@ function assemble(lines, cwd, print) {
 		try {
 			assembleLine(line, output);
 		} catch (err) {
+			console.log(err);
 			console.error("Exiting.");
 			process.exit(1);
 		}
