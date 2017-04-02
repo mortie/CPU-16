@@ -1,5 +1,5 @@
 :loop
-input
-write reg 1
+input-a
+write r 1
 output %1
 goto loop

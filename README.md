@@ -44,7 +44,7 @@ image...`, and select the `.raw` file you just made.
 * `add $10 $3 4`: Add 10 and 3 together, and write the result to address 4.
 * `sub %3 $4 5`: Subtract 4 from the content of RAM address 3, and write the
   result to address 5.
-* `sub reg $4 3`: Subtract 4 from whatever is in register A, and store the
+* `sub r $4 3`: Subtract 4 from whatever is in register A, and store the
   result to address 3.
 
 More example code is in the [examples/
@@ -56,7 +56,7 @@ Registers:
 
 * `RA`: Register for ALU A input.
 * `RB`: Register for ALU B input.
-* `RREG`: Register which can be used as a RAM address.
+* `RRAM`: Register which can be used as a RAM address.
 
 Format:
 
@@ -66,7 +66,7 @@ Format:
 	* `%n`: The number in register n.
 	* `*n`: The number in the register pointed to by register n.
 	* `*`: The number pointed to by the RAM address register (`RREG`).
-	* `reg`: The number already in the register.
+	* `r`: The number already in the register.
 * `<dest>`: Destination RAM address. Possible values:
 	* `n`: RAM address n.
 	* `*`: RAM address in RREG.

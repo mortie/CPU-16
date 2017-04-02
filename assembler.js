@@ -24,6 +24,12 @@ var oprs = {
 	OR: 15
 };
 
+var regs = {
+	A: null,
+	B: null,
+	RAM: null
+};
+
 var defines = {};
 
 function pad(n, val) {
@@ -54,14 +60,14 @@ function instruction(instr, op, _num) {
  * $10: 10
  * %10: value in RAM address 10
  * *10: value pointed to by value in RAM address 10
- * *: value pointed to by the value in register RREG
- * reg: Value in the register
+ * *: value pointed to by the value in register RRAM
+ * r: Value in the register
  */
 function loadVal(reg, val, output) {
 	if (reg !== "A" && reg !== "B" && reg !== "OUT")
 		throw new Error("Invalid register: "+reg);
 
-	if (val === "reg")
+	if (val === "r")
 		return;
 
 	var instr;
@@ -72,59 +78,83 @@ function loadVal(reg, val, output) {
 	if (val[0] !== "$" && val[0] !== "%" && val[0] !== "*")
 		throw new Error("Invalid value: "+val);
 
+	function push(instr, num) {
+		output.push(instruction(instr, 0, num));
+	}
+
 	// Load NUM to register
 	if (val[0] === "$") {
+		if (regs[reg] === num)
+			return;
+		if (reg !== reg.OUT)
+			regs[reg] = num;
+
 		if (reg === "A")
-			instr = 1;
+			push(1, num);
 		else if (reg === "B")
-			instr = 2;
-		else
-			instr = 10;
+			push(2, num);
+		else if (reg === "RAM")
+			push(3, num);
+		else if (reg === "OUT") {
+			push(1, num);
+			push(13, 0);
+		}
 
 	// Load RAM addr NUM to register
 	} else if (val[0] === "%") {
+		if (reg !== reg.OUT)
+			regs[reg] = null;
 
-		// We have to do some trickery to output from RAM addr n
-		if (reg === "OUT") {
-			loadVal("A", "$"+num, output);      // load RA
-			output.push(instruction(13, 0, 0)); // load RREG from RA
-			output.push(instruction(11, 0, 0)); // output RAM addr RREG
-			return;
+		push(3, num);
+
+		if (reg === "A")
+			push(4, 0);
+		else if (reg === "B")
+			push(5, 0);
+		else if (reg === "RAM")
+			push(6, 0);
+		else if (reg === "OUT") {
+			regs.A = null;
+			push(4, 0);
+			push(13, 0);
 		}
 
-		if (reg === "A")
-			instr = 3;
-		else if (reg === "B")
-			instr = 4;
+	// Load RAM addr from RAM addr NUM to register
 	} else if (val[0] === "*") {
+		if (reg !== reg.OUT)
+			regs[reg] = null;
+
 		if (val !== "*")
-			loadVal("A", "$"+num, output);
+			loadVal("RAM", "%"+num, output);
 
 		if (reg === "A")
-			instr = 14;
+			push(4, 0);
 		else if (reg === "B")
-			instr = 15;
-		else
-			instr = 11;
+			push(5, 0);
+		else if (reg === "RAM")
+			push(6, 0);
+		else if (reg === "OUT") {
+			push(4, 0);
+			push(13, 0);
+		}
 	}
-
-	output.push(instruction(instr, 0, num));
 }
 
 /*
  * 1: RAM register 1
- * *: RAM register RREG
+ * *: RAM register RRAM
  */
 function writeRam(val, opr, output) {
 	if (val === "*") {
-		output.push(instruction(11, opr, 0));
+		output.push(instruction(7, opr, 0));
 	} else {
-		output.push(instruction(5, opr, val));
+		output.push(instruction(3, 0, val));
+		output.push(instruction(7, opr, 0));
 	}
 }
 
 function assembleLine(line, output) {
-	var args = line.split(/\s+/).map(p => p.toLowerCase());
+	var args = line.split(/\s+/);
 	if (args.length === 0)
 		return;
 
@@ -132,11 +162,17 @@ function assembleLine(line, output) {
 
 	switch (opr) {
 	case "load-a":
+		regs.A = null;
 		loadVal("A", args[1], output);
 		break;
 
 	case "load-b":
+		regs.B = null;
 		loadVal("B", args[1], output);
+		break;
+
+	case "load-rram":
+		loadVal("RRAM", args[1], output);
 		break;
 
 	case "write":
@@ -144,46 +180,46 @@ function assembleLine(line, output) {
 		writeRam(args[2], 0, output);
 		break;
 
-	case "write-rreg":
-		loadVal("A", args[1], output);
-		output.push(instruction(13, 0, 0));
-		break;
-
 	case "goto-gt":
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
-		output.push(instruction(5, oprs.GT, 0));
-		output.push(instruction(6, 0, labels[args[3]]));
+		output.push(instruction(8, oprs.GT, 0));
+		loadVal("A", "$"+labels[args[1]], output);
+		output.push(instruction(9, 0, 0));
 		break;
 
 	case "goto-lt":
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
-		output.push(instruction(5, oprs.LT, 0));
-		output.push(instruction(6, 0, labels[args[3]]))
+		output.push(instruction(8, oprs.LT, 0));
+		loadVal("A", "$"+labels[args[1]], output);
+		output.push(instruction(9, 0, 0));
 		break;
 
 	case "goto-eq":
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
-		output.push(instruction(5, oprs.EQ, 0));
-		output.push(instruction(6, 0, labels[args[3]]))
+		output.push(instruction(8, oprs.EQ, 0));
+		loadVal("A", "$"+labels[args[1]], output);
+		output.push(instruction(9, 0, 0));
 		break;
 
 	case "goto-neq":
 		loadVal("A", args[1], output);
 		loadVal("B", args[2], output);
-		output.push(instruction(5, oprs.NEQ, 0));
-		output.push(instruction(6, 0, labels[args[3]]))
+		output.push(instruction(8, oprs.NEQ, 0));
+		loadVal("A", "$"+labels[args[1]], output);
+		output.push(instruction(9, 0, 0));
 		break;
 
 	case "goto":
-		output.push(instruction(8, 0, labels[args[1]]));
+		loadVal("A", "$"+labels[args[1]], output);
+		output.push(instruction(10, 0, 0));
 		break;
 
 	case "not":
 		loadVal("A", args[1], output);
-		output.push(instruction(5, oprs.NOT_A, args[2]));
+		writeRam(args[2], oprs.NOT, output);
 		break;
 
 	case "add":
@@ -246,13 +282,26 @@ function assembleLine(line, output) {
 		writeRam(args[3], oprs.OR, output);
 		break;
 
-	case "input":
+	case "input-a":
+		output.push(instruction(11, 0, 0));
+		break;
+
+	case "input-b":
 		output.push(instruction(12, 0, 0));
 		break;
 
 	case "output":
 		loadVal("OUT", args[1], output);
 		break;
+
+	case "_reset-regs":
+		regs.a = null;
+		regs.b = null;
+		regs.ram = null;
+		break;
+
+	default:
+		throw new Error("Unknown instruction: "+opr);
 	}
 }
 
@@ -340,6 +389,7 @@ function preprocess(lines, cwd) {
 		} else if (line[0] === ":") {
 			var name = line.substr(1).split(/\s+/)[0];
 			labels[name] = curr;
+			outLines.push("_reset-regs");
 
 		} else if (line[0] === "#") {
 			inPragma = pragma(line, cwd, outLines);
