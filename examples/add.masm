@@ -1,21 +1,45 @@
 :start
 
+load-ram $1
+load-b $0
+
 :loop-1
-input-a
-write r 1
-goto-neq r $0 end-1
-goto loop-1
+	load-a INPUT
+	write A
+	write-flag NEQ
+
+	load-a :end-1
+	cjmp A
+	load-a :loop-1
+	jmp A
 :end-1
 
+load-ram $2
+
 :loop-2
-input-a
-write r 2
-goto-neq r $0 end-2
-goto loop-2
+	load-a INPUT
+	write A
+	write-flag NEQ
+
+	load-a :end-2
+	cjmp A
+	load-a :loop-2
+	jmp A
 :end-2
 
-sub %1 $48 1
-sub %2 $48 2
-add %1 %2 1
-output %1
-halt
+load-ram $1
+load-a *
+load-b $48
+write SUB
+load-ram $2
+load-a *
+write SUB
+
+load-ram $1
+load-a *
+load-ram $2
+load-b *
+write-extern ADD
+
+load-a :start
+jmp A

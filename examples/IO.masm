@@ -1,5 +1,8 @@
+load-ram $1
+
 :loop
-input-a
-write r 1
-output %1
-goto loop
+load-a INPUT
+write A
+write-extern A
+load-a :loop
+jmp A

@@ -1,7 +1,11 @@
-write $1 1
+load-a $1
+load-b $1
+load-ram $1
+write A
 
 :start
-output %1   # Output the content of register 1.
-add %1 $1 1 # Add the content of RAM address 1 to the number 1,
-            # save output to RAM address 1.
-goto start
+load-a *
+write-extern A
+write ADD
+load-a :start
+jmp A

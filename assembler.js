@@ -4,6 +4,7 @@ var fs = require("fs");
 var pathlib = require("path");
 
 var labels = {};
+var ignoreLabels = false;
 
 var oprs = {
 	A: 0,
@@ -24,12 +25,6 @@ var oprs = {
 	OR: 15
 };
 
-var regs = {
-	A: null,
-	B: null,
-	RAM: null
-};
-
 var defines = {};
 
 function pad(n, val) {
@@ -40,7 +35,15 @@ function readlines(file) {
 	return fs.readFileSync(file, "utf-8").split("\n");
 }
 
-function instruction(instr, op, _num) {
+function instruction(instr, opname, _num) {
+	var opr;
+	if (opname === 0)
+		opr = oprs.A;
+	else if (typeof oprs[opname] !== "undefined")
+		opr = oprs[opname];
+	else
+		throw new Error("Unknown operation: "+opname);
+
 	var num = _num;
 	if (num === undefined)
 		num = 0;
@@ -52,105 +55,136 @@ function instruction(instr, op, _num) {
 
 	var numstr = num.toString(16).toUpperCase();
 	return (instr.toString(16)) +
-		(op.toString(16)) +
+		(opr.toString(16)) +
 		pad(4, numstr);
 }
 
 /*
- * $10: 10
- * %10: value in RAM address 10
- * *10: value pointed to by value in RAM address 10
- * *: value pointed to by the value in register RRAM
- * r: Value in the register
+ * * - value in RAM register
+ * $<number> - number
+ * :<name> - label
+ * :current - current instruction
+ * INPUT - external input
  */
 function loadVal(reg, val, output) {
-	if (reg !== "A" && reg !== "B" && reg !== "OUT")
-		throw new Error("Invalid register: "+reg);
-
-	if (val === "r")
-		return;
-
-	var instr;
-	var num = parseInt(val.substr(1));
-	if (isNaN(num) && val !== "*A")
-		throw new Error("Invalid value: "+val);
-
-	if (val[0] !== "$" && val[0] !== "%" && val[0] !== "*")
-		throw new Error("Invalid value: "+val);
-
-	function push(instr, num) {
-		output.push(instruction(instr, 0, num));
+	function loadNum(num) {
+		if (reg === "A")
+			output.instr(1, 0, num);
+		else if (reg === "B")
+			output.instr(2, 0, num);
+		else if (reg === "RAM")
+			output.instr(3, 0, num);
+		else
+			throw new Error("Unknown register: "+reg);
 	}
 
-	// Load NUM to register
-	if (val[0] === "$") {
-		if (regs[reg] === num)
-			return;
-		if (reg !== reg.OUT)
-			regs[reg] = num;
-
+	// Value in RAM register
+	if (val === "*") {
 		if (reg === "A")
-			push(1, num);
+			output.instr(4, 0, 0);
 		else if (reg === "B")
-			push(2, num);
+			output.instr(5, 0, 0);
 		else if (reg === "RAM")
-			push(3, num);
-		else if (reg === "OUT") {
-			push(1, num);
-			push(13, 0);
+			output.instr(6, 0, 0);
+		else
+			throw new Error("Unknown register: "+reg);
+
+	// Number
+	} else if (val[0] === "$") {
+		var num = parseInt(val.substring(1));
+		if (isNaN(num))
+			throw new Error("Invalid value: "+val);
+
+		loadNum(num);
+
+	// Current instruction
+	} else if (val === ":current") {
+		loadNum(output.length);
+
+	// Label
+	} else if (val[0] === ":") {
+		var num = labels[val.substring(1)];
+
+		if (typeof num !== "number") {
+			if (ignoreLabels)
+				num = 0;
+			else
+				throw new Error("Invalid label: "+val.substring(1));
 		}
 
-	// Load RAM addr NUM to register
-	} else if (val[0] === "%") {
-		if (reg !== reg.OUT)
-			regs[reg] = null;
+		loadNum(num);
 
-		push(3, num);
-
+	// External input
+	} else if (val === "INPUT") {
 		if (reg === "A")
-			push(4, 0);
+			output.instr(11, 0, 0);
 		else if (reg === "B")
-			push(5, 0);
-		else if (reg === "RAM")
-			push(6, 0);
-		else if (reg === "OUT") {
-			regs.A = null;
-			push(4, 0);
-			push(13, 0);
-		}
+			output.instr(12, 0, 0);
+		else
+			throw new Error("Value INPUT is only applicable to registers A and B.");
 
-	// Load RAM addr from RAM addr NUM to register
-	} else if (val[0] === "*") {
-		if (reg !== reg.OUT)
-			regs[reg] = null;
-
-		if (val !== "*")
-			loadVal("RAM", "%"+num, output);
-
-		if (reg === "A")
-			push(4, 0);
-		else if (reg === "B")
-			push(5, 0);
-		else if (reg === "RAM")
-			push(6, 0);
-		else if (reg === "OUT") {
-			push(4, 0);
-			push(13, 0);
-		}
+	// Invalid
+	} else {
+		throw new Error("Invalid value: "+val);
 	}
 }
 
-/*
- * 1: RAM register 1
- * *: RAM register RRAM
- */
-function writeRam(val, opr, output) {
-	if (val === "*") {
-		output.push(instruction(7, opr, 0));
-	} else {
-		output.push(instruction(3, 0, val));
-		output.push(instruction(7, opr, 0));
-	}
+var instrs = {
+	"load-a": {
+		args: [ "val" ],
+		name: "Load A",
+		desc: "Load <val> to reg A.",
+		fn: (output, val) => loadVal("A", val, output)
+	},
+
+	"load-b": {
+		args: [ "val" ],
+		name: "Load B",
+		desc: "Load <val> to reg B.",
+		fn: (output, val) => loadVal("B", val, output)
+	},
+
+	"load-ram": {
+		args: [ "val" ],
+		name: "Load RAM register",
+		desc: "Load <val> to reg RAM.",
+		fn: (output, val) => loadVal("RAM", val, output)
+	},
+
+	"write": {
+		args: [ "opr" ],
+		name: "Write RAM",
+		desc: "Write A <opr> B to RAM.",
+		fn: (output, opr) => output.instr(7, opr, 0)
+	},
+
+	"write-flag": {
+		args: [ "opr" ],
+		name: "Write FLAG register",
+		desc: "Write A <opr> B to FLAG.",
+		fn: (output, opr) => output.instr(8, opr, 0)
+	},
+
+	"write-extern": {
+		args: [ "opr" ],
+		name: "Write externally",
+		desc: "Write A <opr> B externally.",
+		fn: (output, opr) => output.instr(13, opr, 0)
+	},
+
+	"cjmp": {
+		args: [ "opr" ],
+		name: "Conditional jump",
+		desc: "Jump to A <opr> B if FLAG.",
+		fn: (output, opr) => output.instr(9, opr, 0)
+	},
+
+	"jmp": {
+		args: [ "opr" ],
+		name: "Unconditional jump",
+		desc: "Unconditionally jump to A <opr> B.",
+		fn: (output, opr) => output.instr(10, opr, 0)
+	},
 }
 
 function assembleLine(line, output, ignoreLabels) {
@@ -158,189 +192,17 @@ function assembleLine(line, output, ignoreLabels) {
 	if (args.length === 0)
 		return;
 
-	var opr = args[0];
+	var instrname = args[0];
+	args.shift();
 
-	switch (opr) {
-	case "load-a":
-		regs.A = null;
-		loadVal("A", args[1], output);
-		break;
+	var instr = instrs[instrname];
+	if (typeof instr !== "object")
+		throw new Error("Unknown instruction: "+instrname);
+	if (args.length !== instr.args.length)
+		throw new Error("Expected "+instr.args.length+" arguments, got "+args.length);
 
-	case "load-b":
-		regs.B = null;
-		loadVal("B", args[1], output);
-		break;
-
-	case "load-rram":
-		loadVal("RRAM", args[1], output);
-		break;
-
-	case "write":
-		loadVal("A", args[1], output);
-		writeRam(args[2], 0, output);
-		break;
-
-	case "goto-gt":
-		loadVal("A", args[1], output);
-		loadVal("B", args[2], output);
-		output.push(instruction(8, oprs.GT, 0));
-
-		regs.A = null;
-		if (ignoreLabels)
-			loadVal("A", "$0", output);
-		else
-			loadVal("A", "$"+labels[args[3]], output);
-		regs.A = null;
-
-		output.push(instruction(9, 0, 0));
-		break;
-
-	case "goto-lt":
-		loadVal("A", args[1], output);
-		loadVal("B", args[2], output);
-		output.push(instruction(8, oprs.LT, 0));
-
-		regs.A = null;
-		if (ignoreLabels)
-			loadVal("A", "$0", output);
-		else
-			loadVal("A", "$"+labels[args[3]], output);
-		regs.A = null;
-
-		output.push(instruction(9, 0, 0));
-		break;
-
-	case "goto-eq":
-		loadVal("A", args[1], output);
-		loadVal("B", args[2], output);
-		output.push(instruction(8, oprs.EQ, 0));
-
-		regs.A = null;
-		if (ignoreLabels)
-			loadVal("A", "$0", output);
-		else
-			loadVal("A", "$"+labels[args[3]], output);
-		regs.A = null;
-
-		output.push(instruction(9, 0, 0));
-		break;
-
-	case "goto-neq":
-		loadVal("A", args[1], output);
-		loadVal("B", args[2], output);
-		output.push(instruction(8, oprs.NEQ, 0));
-
-		regs.A = null;
-		if (ignoreLabels)
-			loadVal("A", "$0", output);
-		else
-			loadVal("A", "$"+labels[args[3]], output);
-		regs.A = null;
-
-		output.push(instruction(9, 0, 0));
-		break;
-
-	case "goto":
-		regs.A = null;
-		if (ignoreLabels)
-			loadVal("A", "$0", output);
-		else
-			loadVal("A", "$"+labels[args[1]], output);
-		regs.A = null;
-
-		output.push(instruction(10, 0, 0));
-		break;
-
-	case "not":
-		loadVal("A", args[1], output);
-		writeRam(args[2], oprs.NOT, output);
-		break;
-
-	case "add":
-		loadVal("A", args[1], output);
-		loadVal("B", args[2], output);
-		writeRam(args[3], oprs.ADD, output);
-		break;
-
-	case "sub":
-		loadVal("A", args[1], output);
-		loadVal("B", args[2], output);
-		writeRam(args[3], oprs.SUB, output);
-		break;
-
-	case "mul":
-		loadVal("A", args[1], output);
-		loadVal("B", args[2], output);
-		writeRam(args[3], oprs.MUL, output);
-		break;
-
-	case "div":
-		loadVal("A", args[1], output);
-		loadVal("B", args[2], output);
-		writeRam(args[3], oprs.DIV, output);
-		break;
-
-	case "mod":
-		loadVal("A", args[1], output);
-		loadVal("B", args[2], output);
-		writeRam(args[3], oprs.MOD, output);
-		break;
-
-	case "lshift":
-		loadVal("A", args[1], output);
-		loadVal("B", args[2], output);
-		writeRam(args[3], oprs.LSHIFT, output);
-		break;
-
-	case "rshift":
-		loadVal("A", args[1], output);
-		loadVal("B", args[2], output);
-		writeRam(args[3], oprs.RSHIFT, output);
-		break;
-
-	case "xor":
-		loadVal("A", args[1], output);
-		loadVal("B", args[2], output);
-		writeRam(args[3], oprs.XOR, output);
-		break;
-
-	case "and":
-		loadVal("A", args[1], output);
-		loadVal("B", args[2], output);
-		writeRam(args[3], oprs.AND, output);
-		break;
-
-	case "or":
-		loadVal("A", args[1], output);
-		loadVal("B", args[2], output);
-		writeRam(args[3], oprs.OR, output);
-		break;
-
-	case "input-a":
-		output.push(instruction(11, 0, 0));
-		break;
-
-	case "input-b":
-		output.push(instruction(12, 0, 0));
-		break;
-
-	case "output":
-		loadVal("OUT", args[1], output);
-		break;
-
-	case "halt":
-		output.push(instruction(14, 0, 0));
-		break;
-
-	case "_reset-regs":
-		regs.a = null;
-		regs.b = null;
-		regs.ram = null;
-		break;
-
-	default:
-		throw new Error("Unknown instruction: "+opr);
-	}
+	args.splice(0, 0, output);
+	instr.fn.apply(null, args);
 }
 
 var defines = {};
@@ -372,49 +234,57 @@ function pragma(str, cwd, output) {
 	str = str.replace(opr, "").trim();
 
 	switch (opr) {
-	case "#define":
-		var name = str.split(/\s+/)[0];
-		str = str.replace(name, "").trim();
-		if (str === "{") {
-			pragmaVal = { str: "", name: name };
-			pragmaState = "in-define";
-			return true;
-		} else {
-			defines[name] = str;
-		}
-		break;
+		case "#define":
+			var name = str.split(/\s+/)[0];
+			str = str.replace(name, "").trim();
+			if (str === "{") {
+				pragmaVal = { str: "", name: name };
+				pragmaState = "in-define";
+				return true;
+			} else {
+				defines[name] = str;
+			}
+			break;
 
-	case "#include":
-		var relative;
-		if (str[0] === "\"" && str[str.length - 1] === "\"")
-			relative = true;
-		else if (str[0] === "<" && str[str.length - 1] === ">")
-			relative = false;
-		else
-			throw "Invalid include path";
+		case "#include":
+			var relative;
+			if (str[0] === "\"" && str[str.length - 1] === "\"")
+				relative = true;
+			else if (str[0] === "<" && str[str.length - 1] === ">")
+				relative = false;
+			else
+				throw "Invalid include path";
 
-		var path = str.substring(1, str.length - 1);
-		if (relative)
-			path = pathlib.join(cwd, path);
-		else
-			path = pathlib.join(process.cwd(), path);
+			var path = str.substring(1, str.length - 1);
+			if (relative)
+				path = pathlib.join(cwd, path);
+			else
+				path = pathlib.join(process.cwd(), path);
 
-		if (defines["INCLUDED_"+path] !== "1") {
-			preprocess(readlines(path), pathlib.dirname(path)).forEach(l => {
-				output.push(l);
-			});
+			if (defines["INCLUDED_"+path] !== "1") {
+				preprocess(readlines(path), pathlib.dirname(path)).forEach(l => {
+					output.push(l);
+				});
 
-			defines["INCLUDED_"+path] = "1";
-		}
+				defines["INCLUDED_"+path] = "1";
+			}
 	}
 
 	return false;
+}
+
+function instrStream() {
+	var arr = [];
+	arr.instr = (instr, opr, num) => arr.push(instruction(instr, opr, num));
+	return arr;
 }
 
 function preprocess(lines, cwd) {
 	var curr = 0;
 	var outLines = [];
 	var inPragma = false;
+	var errs = false;
+	ignoreLabels = true;
 
 	lines.forEach((line, linenum) => {
 		line = line.trim();
@@ -427,7 +297,6 @@ function preprocess(lines, cwd) {
 		} else if (line[0] === ":") {
 			var name = line.substr(1).split(/\s+/)[0];
 			labels[name] = curr;
-			outLines.push("_reset-regs");
 
 		} else if (line[0] === "#") {
 			inPragma = pragma(line, cwd, outLines);
@@ -437,15 +306,23 @@ function preprocess(lines, cwd) {
 				line = line.split(i).join(defines[i]);
 			}
 			outLines.push(line);
-			var output = [];
+			var output = instrStream();
 			try {
 				assembleLine(line, output, true);
 			} catch (err) {
-				console.error("Line "+linenum+": "+err.message);
+				console.error("Line "+(linenum+1)+": "+err.message);
+				errs = true;
 			}
 			curr += output.length;
 		}
 	});
+
+	if (errs) {
+		console.log("Exiting.");
+		process.exit(1);
+	}
+
+	ignoreLabels = false;
 
 	return outLines;
 }
@@ -459,7 +336,7 @@ function assemble(lines, cwd, print) {
 		lines.forEach(l => console.error(l));
 	}
 
-	var output = [];
+	var output = instrStream();
 	for (var i in lines) {
 		var line = lines[i];
 
@@ -476,7 +353,34 @@ function assemble(lines, cwd, print) {
 }
 
 function usage() {
-	console.error("Usage: "+process.argv[1]+" <infile|-> [outfile|-] [print]");
+	console.log("Usage: "+process.argv[1]+" <infile|-> [outfile|-] [print]");
+	console.log("       "+process.argv[1]+" -h, --help")
+}
+
+function help() {
+	usage();
+	console.log();
+	console.log("<val>:");
+	console.log("\t'*'        : Value from RAM");
+	console.log("\t'$<number>': Number");
+	console.log("\t':<name>'  : Instruction with label <name>");
+	console.log("\t':current' : Current instruction");
+	console.log("\t'INPUT'    : External input (only load-a and load-b");
+	console.log();
+	console.log("<opr>:", Object.keys(oprs).join(", "));
+	console.log();
+	console.log("Instructions:");
+	Object.keys(instrs).forEach(i => {
+		var instr = instrs[i];
+		var args = instr.args.map(a => "<"+a+">").join(" ");
+		console.log("\t"+i+" "+args+": "+instr.name);
+		console.log("\t\t"+instr.desc);
+	});
+}
+
+if (process.argv[2] === "-h" || process.argv[2] === "--help") {
+	help();
+	process.exit(0);
 }
 
 if (process.argv.length <= 2) {

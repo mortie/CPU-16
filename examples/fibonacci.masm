@@ -1,9 +1,25 @@
-write $1 1
-write $1 2
+load-a $1
+load-ram $1
+write A
+load-ram $2
+write A
 
+load-ram $1
 :loop
-add %1 %2 3
-write %2 1
-write %3 2
-output %3
-goto loop
+
+# Add RAM 1 and RAM 2, write to RAM 2
+load-a *
+write-extern A
+load-ram $2
+load-b *
+write ADD
+
+# Add RAM 2 and RAM 1, write to RAM 1
+load-a *
+write-extern A
+load-ram $1
+load-b *
+write ADD
+
+load-a :loop
+jmp A
