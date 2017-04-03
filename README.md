@@ -5,12 +5,8 @@ The instruction set is detailed in [IS.md](https://github.com/mortie/CPU-16/blob
 
 ![Screenshot](https://raw.githubusercontent.com/mortie/CPU-16/master/images/cpu.png)
 
-Here's a video fo the CPU running fibonacci (pay attention to RAM address
-0003):
+Here's a video fo the CPU running fibonacci:
 [https://vid.me/gHav](https://vid.me/gHav)
-
-Note: after making that video, I put the CPU in a subcircuit. The operation of
-the CPU can still be viewed by right clicking the CPU and pressing `View CPU`.
 
 ## Assembler
 
