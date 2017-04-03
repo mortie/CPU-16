@@ -7,7 +7,7 @@ The instruction set is detailed in [IS.md](https://github.com/mortie/CPU-16/blob
 
 Here's a video fo the CPU running fibonacci (pay attention to RAM address
 0003):
-[https://vid.me/K5x0](https://vid.me/K5x0)
+[https://vid.me/gHav](https://vid.me/gHav)
 
 Note: after making that video, I put the CPU in a subcircuit. The operation of
 the CPU can still be viewed by right clicking the CPU and pressing `View CPU`.
