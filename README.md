@@ -5,9 +5,6 @@ The instruction set is detailed in [IS.md](https://github.com/mortie/CPU-16/blob
 
 ![Screenshot](https://raw.githubusercontent.com/mortie/CPU-16/master/images/cpu.png)
 
-Here's a video fo the CPU running fibonacci:
-[https://vid.me/gHav](https://vid.me/gHav)
-
 ## Assembler
 
 The assembler is written in javascript, and requires node.js to be installed.
